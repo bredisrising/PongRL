@@ -21,7 +21,7 @@ ALLOW_INPUT = True
 
 
 EPISODE_LENGTH = 1000 #time steps / frames
-
+BATCHES = 3
 
 FONT = pygame.font.SysFont("Arial", 30)
 
@@ -67,7 +67,6 @@ class Ball:
             self.y = BALL_RADIUS if self.y <= BALL_RADIUS else HEIGHT - BALL_RADIUS
             self.vy *= -1
         
-
         
 
 class Paddle:
@@ -75,7 +74,7 @@ class Paddle:
         self.x = PADDLE_X if side == "left" else WIDTH - PADDLE_X - PADDLE_WIDTH
 
         self.y = HEIGHT // 2 - PADDLE_SIZE // 2
-        self.speed = 25//2
+        self.speed = 25
         self.color = color
 
         self.ai = ai
@@ -97,23 +96,58 @@ class Paddle:
         elif self.y >= PADDLE_RANGE:
             self.y = PADDLE_RANGE
 
+
 left_paddle = Paddle("left", (75, 75, 255))
 right_paddle = Paddle("right", (255, 75, 75))
 ball = Ball((255, 255, 255))
 ball.reset()
 
+fps = 30
 
 running = True
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT or event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE or event.type == pygame.KEYDOWN and event.key == pygame.K_q:
             running = False
+        if event.type == pygame.KEYDOWN and ALLOW_INPUT:
+            if event.key == pygame.K_w:
+                left_paddle.act(0)
+                right_paddle.act(0)
+            elif event.key == pygame.K_s:
+                left_paddle.act(1)
+                right_paddle.act(1) 
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_UP:
+                if fps == 15:
+                    fps = 30
+                else:
+                    fps = 2000
+            elif event.key == pygame.K_DOWN:
+                if fps == 2000:
+                    fps = 30
+                else:
+                    fps = 15
 
 
     # check paddle collision and do actions
     ball.update()
 
+    if ball.x - BALL_RADIUS < 0:
+        # right paddle wins
+        ball.reset()
+    elif ball.x > WIDTH - BALL_RADIUS:
+        # left paddle wins
+        ball.reset()
+
+    if ball.x - BALL_RADIUS > 0:
+        if left_paddle.y <= ball.y <= left_paddle.y + PADDLE_SIZE and ball.x <= left_paddle.x + PADDLE_WIDTH + BALL_RADIUS:
+            ball.x = left_paddle.x + PADDLE_WIDTH + BALL_RADIUS
+            ball.vx *= -1
     
+    if ball.x < WIDTH - BALL_RADIUS:
+        if right_paddle.y <= ball.y <= right_paddle.y + PADDLE_SIZE and ball.x >= right_paddle.x - BALL_RADIUS:
+            ball.x = right_paddle.x - BALL_RADIUS
+            ball.vx *= -1
 
 
     # rendering
@@ -125,7 +159,7 @@ while running:
 
     pygame.display.flip()
 
-    clock.tick(30)
+    clock.tick(fps)
 
 
 
