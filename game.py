@@ -1,11 +1,15 @@
+import torch
 import pygame
 import random
 import numpy as np
+from vpg import VPG
 
 pygame.init()
 WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
+
+HEADLESS = False
 
 PADDLE_SIZE = 75
 PADDLE_WIDTH = 15
@@ -17,7 +21,7 @@ PADDLE_RANGE = HEIGHT - 75
 BALLX_RANGE = WIDTH - PADDLE_X*2
 BALLY_RANGE = HEIGHT 
 
-ALLOW_INPUT = True
+ALLOW_INPUT = False
 
 
 EPISODE_LENGTH = 1000 #time steps / frames
@@ -58,6 +62,11 @@ class Ball:
     def render(self, screen):
         pygame.draw.circle(screen, self.color, (self.x, self.y), BALL_RADIUS)
 
+    def normed_state(self, norm_type):
+        if norm_type == 0:
+            return torch.tensor([self.x/BALLX_RANGE, self.y/BALLY_RANGE, self.vx/self.speed, self.vy/self.speed], dtype=torch.float32)
+        elif norm_type == 1:
+            return torch.tensor([self.x/BALLX_RANGE*2-1, self.y/BALLY_RANGE*2-1, self.vx/self.speed, self.vy/self.speed], dtype=torch.float32)
 
     def update(self):
         self.x += self.vx
@@ -74,13 +83,26 @@ class Paddle:
         self.x = PADDLE_X if side == "left" else WIDTH - PADDLE_X - PADDLE_WIDTH
 
         self.y = HEIGHT // 2 - PADDLE_SIZE // 2
-        self.speed = 25
+        self.speed = 25//2
         self.color = color
 
         self.ai = ai
 
     def render(self, screen):
         pygame.draw.rect(screen, self.color, pygame.Rect(self.x, self.y, PADDLE_WIDTH, PADDLE_SIZE))
+
+
+
+    def update(self, ball_state):
+        state = torch.cat((ball_state, torch.tensor([self.y/PADDLE_RANGE], dtype=torch.float32)))
+        if self.ai == None:
+            print("NO AI")
+            return
+
+        action = self.ai.sample_action(state)
+        self.act(action)
+
+
 
     def act(self, action):
         if action == 0:
@@ -97,8 +119,8 @@ class Paddle:
             self.y = PADDLE_RANGE
 
 
-left_paddle = Paddle("left", (75, 75, 255))
-right_paddle = Paddle("right", (255, 75, 75))
+left_paddle = Paddle("left", (75, 75, 255), ai=VPG(BATCHES, EPISODE_LENGTH))
+right_paddle = Paddle("right", (255, 75, 75), ai=VPG(BATCHES, EPISODE_LENGTH))
 ball = Ball((255, 255, 255))
 ball.reset()
 
@@ -128,26 +150,38 @@ while running:
                 else:
                     fps = 15
 
+    ball_state = ball.normed_state(0)
+    #do actions
+    left_paddle.update(ball_state)
+    right_paddle.update(ball_state)
 
-    # check paddle collision and do actions
+
+    # check collisions
     ball.update()
 
-    if ball.x - BALL_RADIUS < 0:
+    if ball.x + BALL_RADIUS < PADDLE_X:
         # right paddle wins
+        left_paddle.reward(-1)
         ball.reset()
-    elif ball.x > WIDTH - BALL_RADIUS:
+    elif ball.x - BALL_RADIUS > WIDTH - PADDLE_X - PADDLE_WIDTH:
         # left paddle wins
+        right_paddle.reward(-1)
         ball.reset()
 
     if ball.x - BALL_RADIUS > 0:
         if left_paddle.y <= ball.y <= left_paddle.y + PADDLE_SIZE and ball.x <= left_paddle.x + PADDLE_WIDTH + BALL_RADIUS:
             ball.x = left_paddle.x + PADDLE_WIDTH + BALL_RADIUS
             ball.vx *= -1
+            left_paddle.ai.reward(1)
     
     if ball.x < WIDTH - BALL_RADIUS:
         if right_paddle.y <= ball.y <= right_paddle.y + PADDLE_SIZE and ball.x >= right_paddle.x - BALL_RADIUS:
             ball.x = right_paddle.x - BALL_RADIUS
             ball.vx *= -1
+            right_paddle.ai.reward(1)
+
+
+
 
 
     # rendering
