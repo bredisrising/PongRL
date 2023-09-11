@@ -19,10 +19,14 @@ BALLY_RANGE = HEIGHT
 
 ALLOW_INPUT = True
 
+
+EPISODE_LENGTH = 1000 #time steps / frames
+
+
 FONT = pygame.font.SysFont("Arial", 30)
 
 class Ball:
-    def __init__(self, side, color):
+    def __init__(self, color):
         self.x = WIDTH // 2
         self.y = HEIGHT // 2
         self.speed = 25//2
@@ -51,6 +55,8 @@ class Ball:
         self.y = HEIGHT // 2
         self.init_vel(False)
 
+    def render(self, screen):
+        pygame.draw.circle(screen, self.color, (self.x, self.y), BALL_RADIUS)
 
 
     def update(self):
@@ -61,6 +67,7 @@ class Ball:
             self.y = BALL_RADIUS if self.y <= BALL_RADIUS else HEIGHT - BALL_RADIUS
             self.vy *= -1
         
+
         
 
 class Paddle:
@@ -73,8 +80,8 @@ class Paddle:
 
         self.ai = ai
 
-    def render(self):
-        pygame.draw.rect(screen, self.color, (self.x, self.y, PADDLE_WIDTH, PADDLE_SIZE))
+    def render(self, screen):
+        pygame.draw.rect(screen, self.color, pygame.Rect(self.x, self.y, PADDLE_WIDTH, PADDLE_SIZE))
 
     def act(self, action):
         if action == 0:
@@ -90,14 +97,35 @@ class Paddle:
         elif self.y >= PADDLE_RANGE:
             self.y = PADDLE_RANGE
 
-
-
 left_paddle = Paddle("left", (75, 75, 255))
 right_paddle = Paddle("right", (255, 75, 75))
+ball = Ball((255, 255, 255))
+ball.reset()
 
 
 running = True
 while running:
-    pass
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT or event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE or event.type == pygame.KEYDOWN and event.key == pygame.K_q:
+            running = False
 
-    # check paddle collision and do stuff
+
+    # check paddle collision and do actions
+    ball.update()
+
+    
+
+
+    # rendering
+    screen.fill((0, 0, 0))
+
+    left_paddle.render(screen)
+    right_paddle.render(screen)
+    ball.render(screen)
+
+    pygame.display.flip()
+
+    clock.tick(30)
+
+
+
