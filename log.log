@@ -1,0 +1,7 @@
+current situation with vpg
+the paddle gets close the ball but not close enough so it gets negative reward. this causes is it to get stuck in a loopwhere it learns to get closer but then unlearns that when it continues to receive negative reward. 
+
+maybe this is why value functions are incorportated
+
+TODO:
+add value function to vpg
