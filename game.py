@@ -2,7 +2,7 @@ import torch
 import pygame
 import random
 import numpy as np
-from vpg import VPG
+from vpg_value import VPGValue
 
 pygame.init()
 WIDTH, HEIGHT = 800, 600
@@ -24,7 +24,7 @@ BALLY_RANGE = HEIGHT
 ALLOW_INPUT = False
 
 
-EPISODE_LENGTH = 90 #time steps / frames
+EPISODE_LENGTH = 30 * 2.5 #time steps / frames
 BATCHES = 1
 
 FONT = pygame.font.SysFont("Arial", 30)
@@ -94,13 +94,16 @@ class Paddle:
 
 
     def update(self, ball_state, p=False):
-        state = torch.cat((ball_state, torch.tensor([self.y/PADDLE_RANGE], dtype=torch.float32)))
+        state = torch.cat((ball_state, torch.tensor([self.y/PADDLE_RANGE*2-1], dtype=torch.float32)))
         if self.ai == None:
             print("NO AI")
             return
         
+        action, output = self.ai.sample_action(state)
+        if p == True:
+            print(self.ai.value(state), "   ", output, end="\r")
 
-        action = self.ai.sample_action(state, p)
+
         self.act(action)
 
 
@@ -119,8 +122,8 @@ class Paddle:
             self.y = PADDLE_RANGE
 
 
-left_paddle = Paddle("left", (75, 75, 255), ai=VPG(BATCHES, EPISODE_LENGTH))
-right_paddle = Paddle("right", (255, 75, 75), ai=VPG(BATCHES, EPISODE_LENGTH))
+left_paddle = Paddle("left", (75, 75, 255), ai=VPGValue(BATCHES, EPISODE_LENGTH))
+right_paddle = Paddle("right", (255, 75, 75), ai=VPGValue(BATCHES, EPISODE_LENGTH))
 ball = Ball((255, 255, 255))
 ball.reset()
 
@@ -150,7 +153,7 @@ while running:
                 else:
                     fps = 15
 
-    ball_state = ball.normed_state(0)
+    ball_state = ball.normed_state(1)
     #do actions
     left_paddle.update(ball_state, True)
     right_paddle.update(ball_state)
@@ -162,13 +165,13 @@ while running:
     if ball.x + BALL_RADIUS < PADDLE_X:
         # right paddle wins
 
-        distance = -abs(ball.y - (left_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2 + .4
+        distance = -abs(ball.y - (left_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2
         left_paddle.ai.reward(distance)
         ball.reset()
     elif ball.x - BALL_RADIUS > WIDTH - PADDLE_X - PADDLE_WIDTH:
         # left paddle wins
 
-        distance = -abs(ball.y - (right_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2 + .4
+        distance = -abs(ball.y - (right_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2
         right_paddle.ai.reward(distance)
         ball.reset()
 

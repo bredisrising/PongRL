@@ -7,13 +7,9 @@ import random
 class Base:
     def __init__(self, batches, time_steps, lr=1e-3, df=.99):
 
-        neurons = 64
+        neurons = 128
         self.policy = nn.Sequential(
             nn.Linear(5, neurons),
-            nn.ReLU(),
-            nn.Linear(neurons, neurons),
-            nn.ReLU(),
-            nn.Linear(neurons, neurons),
             nn.ReLU(),
             nn.Linear(neurons, neurons),
             nn.ReLU(),
@@ -26,12 +22,12 @@ class Base:
         self.lr = lr
         self.df = df
 
-        self.reset()
-
         self.batches_to_collect = batches
         self.time_steps = time_steps
 
+        self.reset()
 
+    
     def reset(self):
         self.states = [[]]
         self.actions = [[]]
@@ -60,10 +56,12 @@ class Base:
         self.actions[-1].append(action)
         self.probs[-1].append(prob)
         self.returns[-1].append(0)
+        
 
         if len(self.states) >= self.batches_to_collect and len(self.states[-1]) >= self.time_steps:
             self.optimize()
             self.reset()
+
 
         if len(self.states[-1]) >= self.time_steps:
             self.states.append([])
@@ -79,13 +77,13 @@ class Base:
 
         dist = Categorical(output)
         
-        if random.random() < .1:
+        if random.random() < .05:
             action = dist.sample()
         else:
             action = torch.argmax(output)
 
-        self.add(None, None, dist.log_prob(action))
-        return action
+        self.add(state, None, dist.log_prob(action))
+        return action, output
 
         
     def optimize(self):
