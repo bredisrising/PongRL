@@ -10,5 +10,9 @@ new value - previous value = negative value
 this is also known as the advantage
 
 
-TODO:
-add value function to vpg
+training longer with bigger batches seems to be working with vpg (no value func)
+before moving on to a2c let me write some plotting and logging code
+i will log collected reward per game (first to eleven points)
+
+
+

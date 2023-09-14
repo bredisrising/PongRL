@@ -25,6 +25,8 @@ class Base:
         self.batches_to_collect = batches
         self.time_steps = time_steps
 
+        self.update_counter = 0
+
         self.reset()
 
     
@@ -77,7 +79,7 @@ class Base:
 
         dist = Categorical(output)
         
-        if random.random() < .05:
+        if random.random() < .1:
             action = dist.sample()
         else:
             action = torch.argmax(output)
