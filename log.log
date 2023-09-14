@@ -15,4 +15,6 @@ before moving on to a2c let me write some plotting and logging code
 i will log collected reward per game (first to eleven points)
 
 
+what if somehow i use one ai for both agents? would that make training faster
+i can try
 

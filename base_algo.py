@@ -5,7 +5,7 @@ import math
 import random
 
 class Base:
-    def __init__(self, batches, time_steps, lr=1e-3, df=.99):
+    def __init__(self, batches, time_steps, lr=1e-3, df=.99, load=False):
 
         neurons = 128
         self.policy = nn.Sequential(
@@ -26,6 +26,8 @@ class Base:
         self.time_steps = time_steps
 
         self.update_counter = 0
+
+        self.accumulated_reward = 0
 
         self.reset()
 

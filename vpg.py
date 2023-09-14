@@ -3,9 +3,14 @@ import torch
 import torch.nn as nn
 #without value function
 class VPG(Base):
-    def __init__(self, batches, time_steps, lr=1e-4, df=.992):
+    def __init__(self, name, batches, time_steps, lr=1e-2, df=.997, load=False):
         super().__init__(batches, time_steps, lr, df)
         
+        self.name = name
+        self.policy_path = "./models/"+name+"_vpg_policy.pt"
+        if load:
+            self.policy.load_state_dict(torch.load(self.policy_path))  
+
         self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
     
 
@@ -30,5 +35,5 @@ class VPG(Base):
 
         self.update_counter += 1
 
-    def save(self, name):
-        torch.save(self.policy.state_dict(), "./models/"+name+"_vpg_policy.pt")
+    def save(self):
+        torch.save(self.policy.state_dict(), self.policy_path)

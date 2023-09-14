@@ -32,7 +32,7 @@ ALLOW_INPUT = False
 
 
 EPISODE_LENGTH = 30 * 3 #time steps / frames
-BATCHES = 10 # how many episodes to collect before optimizing
+BATCHES = 30 # how many episodes to collect before optimizing
 
 
 
@@ -106,7 +106,7 @@ class Paddle:
 
 
     def update(self, ball_state, p=False):
-        state = torch.cat((ball_state, torch.tensor([self.y/PADDLE_RANGE*2-1], dtype=torch.float32)))
+        state = torch.cat((ball_state, torch.tensor([self.y/PADDLE_RANGE], dtype=torch.float32)))
         if self.ai == None:
             print("NO AI")
             return
@@ -136,8 +136,8 @@ class Paddle:
             self.y = PADDLE_RANGE
 
 
-left_paddle = Paddle("left", (75, 75, 255), ai=VPG(BATCHES, EPISODE_LENGTH))
-right_paddle = Paddle("right", (255, 75, 75), ai=VPG(BATCHES, EPISODE_LENGTH))
+left_paddle = Paddle("left", (75, 75, 255), ai=VPG("left", BATCHES, EPISODE_LENGTH, load=False))
+right_paddle = Paddle("right", (255, 75, 75), ai=VPG("right", BATCHES, EPISODE_LENGTH, load=False))
 ball = Ball((255, 255, 255))
 ball.reset()
 
@@ -176,7 +176,7 @@ while running:
         consecutive_hit_counter = 0
 
 
-    ball_state = ball.normed_state(1)
+    ball_state = ball.normed_state(0)
     #do actions
     left_paddle.update(ball_state, True)
     right_paddle.update(ball_state)
@@ -237,8 +237,8 @@ while running:
 
         clock.tick(fps)
 
-left_paddle.ai.save("left")
-right_paddle.ai.save("right")
+left_paddle.ai.save()
+right_paddle.ai.save()
 
 
 
