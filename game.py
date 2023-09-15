@@ -2,40 +2,8 @@ import torch
 import pygame
 import random
 import numpy as np
-from a2c import A2C
-from vpg import VPG
-
-HEADLESS = False
-BENCHMARK = False
-
-WIDTH, HEIGHT = 800, 600
-
-if not HEADLESS:
-    pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    clock = pygame.time.Clock()
-    FONT = pygame.font.SysFont("Arial", 30)
-
-
-
-PADDLE_SIZE = 75
-PADDLE_WIDTH = 12
-PADDLE_X = 25
-
-BALL_RADIUS = 10
-
-PADDLE_RANGE = HEIGHT - PADDLE_SIZE
-BALLX_RANGE = WIDTH - PADDLE_X*2
-BALLY_RANGE = HEIGHT 
-
-ALLOW_INPUT = False
-
-
-EPISODE_LENGTH = 30 * 3 #time steps / frames
-BATCHES = 30 # how many episodes to collect before optimizing
-
-
-
+from constants import *
+import pickle
 
 class Ball:
     def __init__(self, color):
@@ -54,7 +22,7 @@ class Ball:
             self.vx = pygame.mouse.get_pos()[0] - WIDTH // 2
             self.vy = pygame.mouse.get_pos()[1] - HEIGHT // 2
         else:
-            self.vx = random.uniform(0.4, 1.0) * self.direction
+            self.vx = random.uniform(0.6, 1.0) * self.direction
             self.vy = random.uniform(0.6, 0.9) * (random.choice([1, -1]))
         
         mag = np.sqrt(self.vx**2 + self.vy**2)
@@ -117,7 +85,6 @@ class Paddle:
             #print(output, end="\r")
             #print(self.ai.value(state), "   ", output, end="\r")
 
-
         self.act(action)
 
 
@@ -127,7 +94,7 @@ class Paddle:
         elif action == 1:
             self.y += self.speed
         elif action == 2:
-            # do nothing action
+            # do nothing action - technically elif statement not need
             pass
 
         if self.y <= 0:
@@ -136,109 +103,107 @@ class Paddle:
             self.y = PADDLE_RANGE
 
 
-left_paddle = Paddle("left", (75, 75, 255), ai=VPG("left", BATCHES, EPISODE_LENGTH, load=False))
-right_paddle = Paddle("right", (255, 75, 75), ai=VPG("right", BATCHES, EPISODE_LENGTH, load=False))
-ball = Ball((255, 255, 255))
-ball.reset()
 
-fps = 30
+class Game:
+    def __init__(self, screen, left_paddle, right_paddle, ball, load=False):
+        self.screen = screen
+        self.left_paddle = left_paddle
+        self.right_paddle = right_paddle
+        self.ball = ball
+        
+        self.consecutive_hit_counter = 0
+        self.max_consecutive_hits = 3 
+        
+        if load:
+            self.reward_per_match = pickle.load(open("./train_logs/vpg_rewards.pkl", "rb"))
+        else:
+            self.reward_per_match = []
+        self.rolling_average = 0
 
-consecutive_hit_counter = 0
-max_consecutive_hits = 3
-
-running = True
-while running:
-    if not HEADLESS:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT or event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE or event.type == pygame.KEYDOWN and event.key == pygame.K_q:
-                running = False
-            if event.type == pygame.KEYDOWN and ALLOW_INPUT:
-                if event.key == pygame.K_w:
-                    left_paddle.act(0)
-                    right_paddle.act(0)
-                elif event.key == pygame.K_s:
-                    left_paddle.act(1)
-                    right_paddle.act(1) 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    if fps == 15:
-                        fps = 30
-                    else:
-                        fps = 2000
-                elif event.key == pygame.K_DOWN:
-                    if fps == 2000:
-                        fps = 30
-                    else:
-                        fps = 15
-
-    if consecutive_hit_counter >= max_consecutive_hits:
-        ball.reset()
-        consecutive_hit_counter = 0
-
-
-    ball_state = ball.normed_state(0)
-    #do actions
-    left_paddle.update(ball_state, True)
-    right_paddle.update(ball_state)
-
-    print(left_paddle.ai.update_counter, end="\r")
-
-    # check collisions
-    ball.update()
-
-    if ball.x + BALL_RADIUS < PADDLE_X:
-        # right paddle wins
-        right_paddle.score += 1
-        distance = -abs(ball.y - (left_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2
-        left_paddle.ai.reward(distance)
-        consecutive_hit_counter = 0
-        ball.reset()
+        self.font = pygame.font.Font('freesansbold.ttf', 32)
     
-    elif ball.x - BALL_RADIUS > WIDTH - PADDLE_X - PADDLE_WIDTH:
-        # left paddle wins
-        left_paddle.score += 1
-        distance = -abs(ball.y - (right_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2
-        right_paddle.ai.reward(distance)
-        consecutive_hit_counter = 0
-        ball.reset()
+    def save(self, name):
+        # pickle the reward
+        with open("./train_logs/"+name+"_rewards.pkl", "wb") as f:
+            pickle.dump(self.reward_per_match, f)
 
-    if ball.x - BALL_RADIUS > 0:
-        if left_paddle.y - BALL_RADIUS<= ball.y <= left_paddle.y + PADDLE_SIZE + BALL_RADIUS and ball.x <= left_paddle.x + PADDLE_WIDTH + BALL_RADIUS:
-            ball.x = left_paddle.x + PADDLE_WIDTH + BALL_RADIUS
-            ball.vx *= -1
+    def handle_collisions(self):
+        # check collisions
+        self.ball.update()
+
+        # if self.ball.x - BALL_RADIUS > 0:
+        if self.left_paddle.y - BALL_RADIUS<= self.ball.y <= self.left_paddle.y + PADDLE_SIZE + BALL_RADIUS and self.ball.x <= self.left_paddle.x + PADDLE_WIDTH + BALL_RADIUS:
+            self.ball.x = self.left_paddle.x + PADDLE_WIDTH + BALL_RADIUS + 1
+            self.ball.vx *= -1
             
-            left_paddle.ai.reward(1)
-            consecutive_hit_counter += 1
-    
-    if ball.x < WIDTH - BALL_RADIUS:
-        if right_paddle.y - BALL_RADIUS <= ball.y <= right_paddle.y + PADDLE_SIZE and ball.x >= right_paddle.x - BALL_RADIUS:
-            ball.x = right_paddle.x - BALL_RADIUS
-            ball.vx *= -1
+            self.left_paddle.ai.reward(1)
+            self.consecutive_hit_counter += 1
+        
+        # if self.ball.x < WIDTH - BALL_RADIUS:
+        if self.right_paddle.y - BALL_RADIUS <= self.ball.y <= self.right_paddle.y + PADDLE_SIZE + BALL_RADIUS and self.ball.x >= self.right_paddle.x - BALL_RADIUS:
+            self.ball.x = self.right_paddle.x - BALL_RADIUS - 1
+            self.ball.vx *= -1
 
-            right_paddle.ai.reward(1)
-            consecutive_hit_counter += 1
+            self.right_paddle.ai.reward(1)
+            self.consecutive_hit_counter += 1
+
+        if self.ball.x + BALL_RADIUS <= 0:
+            # right paddle wins
+            self.right_paddle.score += 1
+            distance = -abs(self.ball.y - (self.left_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2
+            self.left_paddle.ai.reward(distance)
+            self.consecutive_hit_counter = 0
+            self.ball.reset()
+        
+        elif self.ball.x - BALL_RADIUS >= WIDTH:
+            # left paddle wins
+            self.left_paddle.score += 1
+            distance = -abs(self.ball.y - (self.right_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2
+            self.right_paddle.ai.reward(distance)
+            self.consecutive_hit_counter = 0
+            self.ball.reset()
+
+        
 
 
-    if left_paddle.score > 10 or right_paddle.score > 10:
-        # game over
-        # log accumulated reward
-        pass
+
+    def step(self):   
+        if self.consecutive_hit_counter >= self.max_consecutive_hits:
+            self.ball.reset()
+            self.consecutive_hit_counter = 0
 
 
-    if not HEADLESS:
+        self.handle_collisions()
+
+        ball_state = self.ball.normed_state(1)
+        self.left_paddle.update(ball_state, True)
+        self.right_paddle.update(ball_state)
+
+        print(self.left_paddle.ai.update_counter, end="\r")
+
         # rendering
-        screen.fill((0, 0, 0))
+        self.screen.fill((0, 0, 0))
 
-        left_paddle.render(screen)
-        right_paddle.render(screen)
-        ball.render(screen)
+        self.left_paddle.render(self.screen)
+        self.right_paddle.render(self.screen)
+        self.ball.render(self.screen)
 
-        pygame.display.flip()
+        if LOG and self.left_paddle.score > 10 or self.right_paddle.score > 10:
+            # game over
+            # log accumulated reward
+            self.reward_per_match.append(self.left_paddle.ai.accumulated_reward)
 
-        clock.tick(fps)
+            #rolling average
+            self.rolling_average = sum(self.reward_per_match[-50:]) / 50
 
-left_paddle.ai.save()
-right_paddle.ai.save()
+            self.left_paddle.ai.accumulated_reward = 0
+            self.left_paddle.score = 0
+            self.right_paddle.score = 0
 
 
-
+        # render rolling average
+        
+        text = self.font.render(str(self.rolling_average), True, (255, 255, 255), (0, 0, 0))
+        textRect = text.get_rect()
+        textRect.center = (WIDTH // 2, 50)
+        self.screen.blit(text, textRect)

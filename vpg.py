@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 #without value function
 class VPG(Base):
-    def __init__(self, name, batches, time_steps, lr=1e-2, df=.997, load=False):
+    def __init__(self, name, batches, time_steps, lr=1e-3, df=.997, load=False):
         super().__init__(batches, time_steps, lr, df)
         
         self.name = name
@@ -26,7 +26,7 @@ class VPG(Base):
 
             ploss += (-probs * returns.detach()).sum()
 
-        ploss = ploss / self.batches_to_collect
+        #ploss = ploss / self.batches_to_collect
 
 
         self.policy_optimizer.zero_grad()

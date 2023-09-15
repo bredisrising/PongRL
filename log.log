@@ -18,3 +18,17 @@ i will log collected reward per game (first to eleven points)
 what if somehow i use one ai for both agents? would that make training faster
 i can try
 
+
+
+
+
+A2C - does well until accumulated reward sits around positive 12 for a while. 
+then i think the value function gets messed up because of all the positive reward that the
+accumulated reward falls back down significantly
+
+could i maybe reward positive inversely proportional to how well its doing?
+so if its doing very good, less positive reward to prevent overfitting?
+or maybe weight decay on the optimizer
+
+pressing q or stopping code will mess up reward logging
+need to fix and retrain sadly

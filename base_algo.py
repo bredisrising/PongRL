@@ -40,6 +40,7 @@ class Base:
         self.returns = [[]]
     
     def reward(self, reward):
+        self.accumulated_reward += reward
         self.rewards[-1].append((reward, len(self.states[-1])-1))
 
     def discount(self):
@@ -52,7 +53,7 @@ class Base:
                 reward, time = self.rewards[b][r]
 
                 for i, index in enumerate(range(prev_time+1, time+1)):
-                    self.returns[b][i] = reward * self.df**((time+1 - prev_time+1) - index)
+                    self.returns[b][index] = reward * self.df**(((time+1) - (prev_time+1)) - (i+1))
 
 
     def add(self, state, action, prob):
