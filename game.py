@@ -23,7 +23,7 @@ class Ball:
             self.vy = pygame.mouse.get_pos()[1] - HEIGHT // 2
         else:
             self.vx = random.uniform(0.6, 1.0) * self.direction
-            self.vy = random.uniform(0.6, 0.9) * (random.choice([1, -1]))
+            self.vy = random.uniform(0.1, 0.9) * (random.choice([1, -1]))
         
         mag = np.sqrt(self.vx**2 + self.vy**2)
         self.vx /= mag
@@ -147,7 +147,7 @@ class Game:
             self.right_paddle.ai.reward(1)
             self.consecutive_hit_counter += 1
 
-        if self.ball.x + BALL_RADIUS <= 0:
+        if self.ball.x - BALL_RADIUS <= 0:
             # right paddle wins
             self.right_paddle.score += 1
             distance = -abs(self.ball.y - (self.left_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2
@@ -155,7 +155,7 @@ class Game:
             self.consecutive_hit_counter = 0
             self.ball.reset()
         
-        elif self.ball.x - BALL_RADIUS >= WIDTH:
+        elif self.ball.x + BALL_RADIUS >= WIDTH:
             # left paddle wins
             self.left_paddle.score += 1
             distance = -abs(self.ball.y - (self.right_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2
@@ -179,7 +179,7 @@ class Game:
         self.left_paddle.update(ball_state, True)
         self.right_paddle.update(ball_state)
 
-        print(self.left_paddle.ai.update_counter, end="\r")
+        #print(self.left_paddle.ai.update_counter, end="\r")
 
         # rendering
         self.screen.fill((0, 0, 0))
@@ -200,10 +200,24 @@ class Game:
             self.left_paddle.score = 0
             self.right_paddle.score = 0
 
-
-        # render rolling average
-        
         text = self.font.render(str(self.rolling_average), True, (255, 255, 255), (0, 0, 0))
         textRect = text.get_rect()
         textRect.center = (WIDTH // 2, 50)
         self.screen.blit(text, textRect)
+        
+        if len(self.reward_per_match) <= 0:
+            return False
+        
+        text = self.font.render(str(self.reward_per_match[-1]), True, (255, 255, 255), (0, 0, 0))
+        textRect = text.get_rect()
+        textRect.center = (WIDTH // 2, 150)
+        self.screen.blit(text, textRect)
+
+
+        if len(self.reward_per_match) == 1000:
+            return True
+        else:
+            return False
+
+        # render rolling average
+        

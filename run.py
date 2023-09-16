@@ -2,6 +2,8 @@ import pygame
 from game import Game, Paddle, Ball
 from a2c import A2C
 from vpg import VPG
+from ppo import PPO
+from dqn import DQN
 
 from constants import *
 
@@ -12,51 +14,49 @@ if __name__ == "__main__":
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
     
+    left_paddles = [
+        Paddle("left", (75, 75, 255), ai=VPG("left", BATCHES, EPISODE_LENGTH, load=False)),
+        Paddle("left", (75, 75, 255), ai=A2C("left", BATCHES, EPISODE_LENGTH, load=False)),
+        Paddle("left", (75, 75, 255), ai=PPO("left", BATCHES, EPISODE_LENGTH, load=False)),
+        Paddle("left", (75, 75, 255), ai=DQN("left", BATCHES, EPISODE_LENGTH, load=False))
+    ]
 
+    right_paddles = [
+        Paddle("right", (255, 75, 75), ai=VPG("right", BATCHES, EPISODE_LENGTH, load=False)),
+        Paddle("right", (255, 75, 75), ai=A2C("right", BATCHES, EPISODE_LENGTH, load=False)),
+        Paddle("right", (255, 75, 75), ai=PPO("right", BATCHES, EPISODE_LENGTH, load=False)),
+        Paddle("right", (255, 75, 75), ai=DQN("right", BATCHES, EPISODE_LENGTH, load=False))
+    ]
 
-    left_paddle = Paddle("left", (75, 75, 255), ai=VPG("left", BATCHES, EPISODE_LENGTH, load=True))
-    right_paddle = Paddle("right", (255, 75, 75), ai=VPG("right", BATCHES, EPISODE_LENGTH, load=True))
-    ball = Ball((255, 255, 255))
-    ball.reset()
+    # left_paddle = Paddle("left", (75, 75, 255), ai=DQN("left", BATCHES, EPISODE_LENGTH, load=False))
+    # right_paddle = Paddle("right", (255, 75, 75), ai=DQN("right", BATCHES, EPISODE_LENGTH, load=False))
     
-    game = Game(screen, left_paddle, right_paddle, ball, load=True)    
     
-    running = True
-    fps = 30
+    for i in range(4):
+        ball = Ball((255, 255, 255))
+        ball.reset()
+        game = Game(screen, left_paddles[i], right_paddles[i], ball, load=False)    
+        
+        running = True
+        fps = 3000
 
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT or event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE or event.type == pygame.KEYDOWN and event.key == pygame.K_q:
+                    running = False
 
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT or event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE or event.type == pygame.KEYDOWN and event.key == pygame.K_q:
+            if game.step():
                 running = False
-            if event.type == pygame.KEYDOWN and ALLOW_INPUT:
-                if event.key == pygame.K_w:
-                    left_paddle.act(0)
-                    right_paddle.act(0)
-                elif event.key == pygame.K_s:
-                    left_paddle.act(1)
-                    right_paddle.act(1) 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    if fps == 15:
-                        fps = 30
-                    else:
-                        fps = 2000
-                elif event.key == pygame.K_DOWN:
-                    if fps == 2000:
-                        fps = 30
-                    else:
-                        fps = 15
+            
 
-        game.step()
+            pygame.display.flip()
 
-        pygame.display.flip()
-
-        clock.tick(fps)
+            clock.tick(fps)
 
 
-    left_paddle.ai.save()
-    right_paddle.ai.save()
+        left_paddles[i].ai.save()
+        right_paddles[i].ai.save()
 
-    game.save("vpg")
+        game.save(left_paddles[i].ai.net)
     

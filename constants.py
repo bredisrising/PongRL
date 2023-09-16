@@ -18,4 +18,6 @@ ALLOW_INPUT = False
 
 
 EPISODE_LENGTH = 30 * 3 #time steps / frames
-BATCHES = 30 # how many episodes to collect before optimizing
+BATCHES = 33 # how many episodes to collect before optimizing
+
+MATCHES = None # how many matches to play before stopping, none for infinite

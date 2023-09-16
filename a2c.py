@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 #without value function
 class A2C(Base):
-    def __init__(self, name, batches, time_steps, lr=1e-4, df=.993, load=False):
+    def __init__(self, name, batches, time_steps, lr=1e-3, df=.993, load=False):
         super().__init__(batches, time_steps, lr, df)
-
+        self.net = 'a2c'
         neurons = 64
         self.value = nn.Sequential(
             nn.Linear(5, neurons),
@@ -63,19 +63,26 @@ class A2C(Base):
 
 
         ploss = 0
-        vloss = 0
+        entropy_loss = 0
+
+        vloss = 0   
+
         for b in range(self.batches_to_collect):
-            probs = torch.stack(self.probs[b])
+            entropys = torch.stack(self.entropys[b])
+            log_probs = torch.stack(self.log_probs[b])
             returns = torch.tensor([self.returns[b]], dtype=torch.float32).permute(1,0)
             advantages = torch.stack(self.advantages[b])
             vloss += self.value_loss_fn(self.values[b], returns.detach()).sum()
-            ploss += (-probs * advantages.detach()).sum()
+            ploss += (-log_probs * advantages.detach()).sum()
+            entropy_loss -= entropys.sum()
 
-        # ploss = ploss / self.batches_to_collect
-        # vloss = vloss / self.batches_to_collect
+        ploss = ploss / self.batches_to_collect
+        vloss = vloss / self.batches_to_collect
+        entropy_loss = entropy_loss / self.batches_to_collect
 
         self.policy_optimizer.zero_grad()
-        ploss.backward()
+        loss = ploss + entropy_loss 
+        loss.backward()
         self.policy_optimizer.step()
 
         self.value_optimizer.zero_grad()

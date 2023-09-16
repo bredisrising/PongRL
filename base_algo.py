@@ -33,8 +33,10 @@ class Base:
 
     
     def reset(self):
-        self.states = [[]]
         self.actions = [[]]
+        self.states = [[]]
+        self.entropys = [[]]
+        self.log_probs = [[]]
         self.probs = [[]]
         self.rewards = [[]]
         self.returns = [[]]
@@ -56,9 +58,11 @@ class Base:
                     self.returns[b][index] = reward * self.df**(((time+1) - (prev_time+1)) - (i+1))
 
 
-    def add(self, state, action, prob):
-        self.states[-1].append(state)
+    def add(self, action, state, entropy, log_prob, prob):
         self.actions[-1].append(action)
+        self.states[-1].append(state)
+        self.entropys[-1].append(entropy)
+        self.log_probs[-1].append(log_prob)
         self.probs[-1].append(prob)
         self.returns[-1].append(0)
         
@@ -69,8 +73,10 @@ class Base:
 
 
         if len(self.states[-1]) >= self.time_steps:
-            self.states.append([])
             self.actions.append([])
+            self.states.append([])
+            self.entropys.append([])
+            self.log_probs.append([])
             self.probs.append([])
             self.rewards.append([])
             self.returns.append([])
@@ -87,7 +93,7 @@ class Base:
         else:
             action = torch.argmax(output)
 
-        self.add(state, None, dist.log_prob(action))
+        self.add(action, state, dist.entropy(), dist.log_prob(action), output[action])
         return action, output
 
         
