@@ -14,6 +14,9 @@ python run.py play_vs <algo> # play vs an ai
 python run.py watch <algo> <algo> # two trained ais against each other
 ```
 
-
+<p> Graph from my training. <br>
+  The environment is set up such that the maximum reward per match is around 60 because allowing too many consecutive hits would drastically increase training time.</p>
+  
+![Image](rewards.png)
 
 ###### Ankit Malhotra
