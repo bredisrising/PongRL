@@ -1,21 +1,19 @@
-Pong AI
+## PongRL
 
-Two agents will learn to play pong against each other. This differs from other methods online which have one agent play against a bang-bang ai.
-
-I also have the agents rewarded for hitting the ball; this is to help get the desired behavior quicker whereas online methods only reward for winning the game.
-
-I'm training four algorithms -
-    Vanilla Policy Gradients (REINFORCE)
-    Advantage Actor-Critic (A2C)
-    Proximal Policy Optimization (PPO)
-    Deep Q Network (DQN)
-
-The first three algorithms use the same underlying principle - Policy Gradients
-The policy is the neural network that takes in the environment state and outputs probabilities for actions.
+- Vanilla Policy Gradients ('vpg')
+- Advantage Actor-Critic ('a2c')
+- Proximal Policy Optimization ('ppo')
+- Deep Q Network ('dqn')
 
 
-
+##### Algorithm Options Shown Above
+```
+python run.py train <algo> # train one ai algorithm
+python run.py train_all # train all - takes some time for learning to get going
+python run.py play_vs <algo> # play vs an ai
+python run.py watch <algo> <algo> # two trained ais against each other
+```
 
 
 
-Ankit Malhotra
+###### Ankit Malhotra

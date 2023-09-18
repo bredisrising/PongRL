@@ -219,7 +219,7 @@ class Game:
         if len(self.reward_per_match) <= 0:
             return False
         
-        print(len(self.reward_per_match), '                 ', end="\r")
+        print(self.left_paddle.ai.net, len(self.reward_per_match), '                 ', end="\r")
 
         text = self.font.render(str(self.reward_per_match[-1]), True, (255, 255, 255), (0, 0, 0))
         textRect = text.get_rect()
