@@ -81,8 +81,7 @@ class Paddle:
         action, output = self.ai.sample_action(state)
         if p == True:
             pass
-            #print(output, end="\r")
-            #print(self.ai.value(state), "   ", output, end="\r")
+
 
         self.act(action)
 
@@ -113,7 +112,7 @@ class Game:
         self.consecutive_hit_counter = 0
         self.max_consecutive_hits = 15
         
-        self.train = False
+        self.train = train
 
         if self.train:
             self.max_consecutive_hits = 5
@@ -135,7 +134,7 @@ class Game:
         # check collisions
         self.ball.update()
 
-        # if self.ball.x - BALL_RADIUS > 0:
+        
         if self.left_paddle.y - BALL_RADIUS<= self.ball.y <= self.left_paddle.y + PADDLE_SIZE + BALL_RADIUS and self.ball.x <= self.left_paddle.x + PADDLE_WIDTH + BALL_RADIUS + 3:
             self.ball.x = self.left_paddle.x + PADDLE_WIDTH + BALL_RADIUS + 1
             self.ball.vx *= -1
@@ -143,12 +142,14 @@ class Game:
             self.left_paddle.ai.reward(1)
             self.consecutive_hit_counter += 1
         
-        # if self.ball.x < WIDTH - BALL_RADIUS:
+        
         if self.right_paddle.y - BALL_RADIUS <= self.ball.y <= self.right_paddle.y + PADDLE_SIZE + BALL_RADIUS and self.ball.x >= self.right_paddle.x - BALL_RADIUS - 3:
             self.ball.x = self.right_paddle.x - BALL_RADIUS - 1
             self.ball.vx *= -1
 
-            self.right_paddle.ai.reward(1)
+            if self.right_paddle.ai != None:
+                self.right_paddle.ai.reward(1)
+            
             self.consecutive_hit_counter += 1
 
         if self.ball.x - BALL_RADIUS <= 0:
@@ -162,9 +163,12 @@ class Game:
         elif self.ball.x + BALL_RADIUS >= WIDTH:
             # left paddle wins
             self.left_paddle.score += 1
-            distance = -abs(self.ball.y - (self.right_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2
-            self.right_paddle.ai.reward(distance)
-            self.consecutive_hit_counter = 0
+
+            if self.right_paddle.ai != None:
+                distance = -abs(self.ball.y - (self.right_paddle.y + PADDLE_SIZE // 2)) / PADDLE_RANGE * 2
+                self.right_paddle.ai.reward(distance)
+                self.consecutive_hit_counter = 0
+            
             self.ball.reset()
 
         
@@ -183,7 +187,6 @@ class Game:
         self.left_paddle.update(ball_state, True)
         self.right_paddle.update(ball_state)
 
-        #print(self.left_paddle.ai.update_counter, end="\r")
 
         # rendering
         self.screen.fill((0, 0, 0))
@@ -216,7 +219,7 @@ class Game:
         if len(self.reward_per_match) <= 0:
             return False
         
-        print(self.reward_per_match, '                 ', end="\r")
+        print(len(self.reward_per_match), '                 ', end="\r")
 
         text = self.font.render(str(self.reward_per_match[-1]), True, (255, 255, 255), (0, 0, 0))
         textRect = text.get_rect()

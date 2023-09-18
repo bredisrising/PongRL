@@ -4,7 +4,7 @@ import torch.nn as nn
 from base_algo import Base
 
 class DQN(Base):
-    def __init__(self, name, batches, batch_size, time_steps, lr=1e-3, df=.993, load=False):
+    def __init__(self, name, batches, batch_size, time_steps, lr=1e-3, df=.993, load=False, p=None):
         super().__init__(batches, batch_size, time_steps, lr, df, p=None)
         self.net  = 'dqn'
         neurons = 64

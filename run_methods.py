@@ -38,16 +38,17 @@ def game_loop(game, clock):
                             fps = 30
                         else:
                             fps = 3000
+                    elif event.key == pygame.K_DOWN:
+                        if fps == 3000:
+                            fps = 30
+                        else:
+                            fps = 15
                 else:
-                    game.right_paddle.act(0)
-            elif event.key == pygame.K_DOWN:
-                if game.train:
-                    if fps == 3000:
-                        fps = 30
-                    else:
-                        fps = 15
-                else:
-                    game.right_paddle.act(1)
+                    if event.key == pygame.K_UP:
+                        game.right_paddle.act(0)
+                    elif event.key == pygame.K_DOWN:
+                        game.right_paddle.act(1)
+
 
         if game.step():
             running = False
@@ -76,8 +77,8 @@ def computer_vs_computer(left_algo, right_algo, screen, clock):
 
 def train(algo, screen, clock):
     ball = Ball((255, 255, 255))
-    left_paddle = Paddle("left", (75, 75, 255), ai=algo("left", BATCHES, BATCH_SIZE, EPISODE_LENGTH, load=False, p=deepcopy(policy)))
-    right_paddle = Paddle("right", (255, 75, 75), ai=algo("right", BATCHES, BATCH_SIZE, EPISODE_LENGTH, load=False, p=deepcopy(policy)))
+    left_paddle = Paddle("left", (75, 75, 255), ai=algo("left", BATCHES, BATCH_SIZE, EPISODE_LENGTH, load=False, p=deepcopy(policy) if algo != DQN else None))
+    right_paddle = Paddle("right", (255, 75, 75), ai=algo("right", BATCHES, BATCH_SIZE, EPISODE_LENGTH, load=False, p=deepcopy(policy) if algo != DQN else None))
     ball.reset()
     game = Game(screen, left_paddle, right_paddle, ball, load=False, train=True)
     game_loop(game, clock)
@@ -89,8 +90,8 @@ def train(algo, screen, clock):
 def train_all(screen, clock):
     for i in range(4):
         ball = Ball((255, 255, 255))
-        left_paddle = Paddle("left", (75, 75, 255), ai=algolist[i]("left", BATCHES, BATCH_SIZE, EPISODE_LENGTH, load=False, p=deepcopy(policy)))
-        right_paddle = Paddle("right", (255, 75, 75), ai=algolist[i]("right", BATCHES, BATCH_SIZE, EPISODE_LENGTH, load=False, p=deepcopy(policy)))
+        left_paddle = Paddle("left", (75, 75, 255), ai=algolist[i]("left", BATCHES, BATCH_SIZE, EPISODE_LENGTH, load=False, p=deepcopy(policy) if algolist[i] != DQN else None))
+        right_paddle = Paddle("right", (255, 75, 75), ai=algolist[i]("right", BATCHES, BATCH_SIZE, EPISODE_LENGTH, load=False, p=deepcopy(policy) if algolist[i] != DQN else None))
         ball.reset()
         game = Game(screen, left_paddle, right_paddle, ball, load=False, train=True)
         game_loop(game, clock)
