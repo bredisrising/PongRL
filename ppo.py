@@ -5,9 +5,10 @@ import torch.nn as nn
 
 from copy import deepcopy
 
+
 class PPO(Base):
-    def __init__(self, name, batches, time_steps, lr=1e-3, df=.993, load=False):
-        super().__init__(batches, time_steps, lr, df)
+    def __init__(self, name, batches, batch_size, time_steps, lr=1e-3, df=0.0, load=False, p=None):
+        super().__init__(batches, batch_size, time_steps, lr, df, p)
         self.net = 'ppo'
         neurons = 64
         self.value = nn.Sequential(
@@ -34,9 +35,9 @@ class PPO(Base):
 
         self.advantages = []
         
-        self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr/3)
+        self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=1e-3)
         
-        self.value_optimizer = torch.optim.Adam(self.value.parameters())
+        self.value_optimizer = torch.optim.Adam(self.value.parameters(), lr=1.5e-3)
         self.value_loss_fn = nn.MSELoss()
 
     
@@ -44,65 +45,76 @@ class PPO(Base):
         torch.save(self.policy.state_dict(), self.policy_path)
         torch.save(self.value.state_dict(), self.value_path)
 
-    def advantage(self):
+    def discount(self):
         self.advantages = []
         self.values = []
         for b in range(self.batches_to_collect):
-            self.values.append([])
-            self.values[b] = self.value(torch.stack(self.states[b]))
             self.advantages.append([])
-            # get next value - prev value for each index
-            for i in range(len(self.values[b])):
-                if i == len(self.values[b]) - 1:
-                    self.advantages[b].append(self.returns[b][i] - self.values[b][i])
-                else:
-                    self.advantages[b].append(self.returns[b][i] + self.values[b][i+1]*.99 - self.values[b][i])
+            self.values.append([])
+            for e in range(self.batch_size):
+                self.values[b].append([])
+                self.values[b][e] = self.value(torch.stack(self.states[b][e]))
+                self.advantages[b].append([])
+
+                if len(self.rewards[b][e]) == 0 or self.rewards[b][e][-1][1] != self.time_steps-1:
+                    self.rewards[b][e].append((0, self.time_steps-1))
+
+                for r in range(len(self.rewards[b][e])):
+                    if r-1 < 0:
+                        prev_time = -1
+                    else:
+                        prev_time = self.rewards[b][e][r-1][1]
+                    reward, time = self.rewards[b][e][r]
+
+                    for i, index in enumerate(range(prev_time+1, time+1)):
+                        self.returns[b][e][index] = reward * self.df**(((time+1) - (prev_time+1)) - (i+1))
+
+                    for i, index  in enumerate(range(prev_time+1, time+1)):
+                        if ((time+1) - (prev_time+1)) - (i+1) == 0:
+                            #self.advantages[b][e][index] = self.returns[b][e][index] - self.values[b][e][index]
+                            self.advantages[b][e].append(self.returns[b][e][index] - self.values[b][e][index])
+                        else:
+                            #self.advantages[b][e][index] = self.returns[b][e][index+1] + self.values[b][e][index+1]*.99 - self.values[b][e][index]
+                            self.advantages[b][e].append(self.returns[b][e][index+1] + self.values[b][e][index+1]*.993 - self.values[b][e][index])
 
     def optimize(self):
-        super().discount()
-        self.advantage()
-
-        # if self.update_counter == 0:
-        #     self.update_counter += 1
-        #     return
-        
-        # ploss = 0
-        # vloss = 0   
-        # entropy_loss = 0
+        self.discount()
+        #self.advantage()
 
         old_policy = deepcopy(self.policy)
 
+        ploss = 0
+        vloss = 0
+        entropy_loss = 0
 
-        
-
-        # ploss = 0
-        # vloss = 0
         for b in range(self.batches_to_collect):
-            #print('fuck'+str(b))
-            old_probs = old_policy(torch.stack(self.states[b]).detach()).gather(1, torch.tensor(self.actions[b]).unsqueeze(1)).squeeze(1)
-            cur_probs = self.policy(torch.stack(self.states[b]).detach()).gather(1, torch.tensor(self.actions[b]).unsqueeze(1)).squeeze(1)
-            values = self.value(torch.stack(self.states[b]).detach())
+            for e in range(self.batch_size):
+                old_probs = old_policy(torch.stack(self.states[b][e]).detach()).gather(1, torch.tensor(self.actions[b][e]).unsqueeze(1)).squeeze(1)
+                cur_probs = self.policy(torch.stack(self.states[b][e]).detach()).gather(1, torch.tensor(self.actions[b][e]).unsqueeze(1)).squeeze(1)
+                #values = self.value(torch.stack(self.states[b][e]).detach())
 
-            #entropys = torch.stack(self.entropys[b])
-            returns = torch.tensor([self.returns[b]], dtype=torch.float32).permute(1,0)
-            advantages = torch.stack(self.advantages[b])
-            vloss = self.value_loss_fn(values, returns.detach()).mean()
-            
-            ratio = cur_probs / old_probs.detach()
-            epic = ratio * advantages.detach()
-            clip = torch.clamp(ratio, 1-self.epsilon, 1+self.epsilon) * advantages.detach()
-            ploss = -torch.min(epic, clip).mean()
-            #entropy_loss = entropys.mean()
+                #entropys = torch.stack(self.entropys[b][e])
+                #returns = torch.tensor([self.returns[b]], dtype=torch.float32).permute(1,0)
+                advantages = torch.stack(self.advantages[b][e])
+                vloss += advantages.pow(2).sum()
                 
-            # ploss = ploss / (self.batches_to_collect * self.time_steps)
-            # vloss = vloss / (self.batches_to_collect * self.time_steps)
+                ratio = cur_probs / old_probs.detach()
+                epic = ratio * advantages.detach()
+                clip = torch.clamp(ratio, 1-self.epsilon, 1+self.epsilon) * advantages.detach()
+                ploss += -torch.min(epic, clip).sum()
+                #entropy_loss -= entropys.sum()
+                    
+        #ploss = ploss / (self.batches_to_collect)
+        vloss = vloss / (self.batches_to_collect)
+        #entropy_loss = entropy_loss / (self.batches_to_collect)
 
-            self.policy_optimizer.zero_grad()
-            (ploss).backward()
-            self.policy_optimizer.step()
+        self.policy_optimizer.zero_grad()
+        loss = ploss
+        loss.backward()
+        self.policy_optimizer.step()
 
-            self.value_optimizer.zero_grad()
-            vloss.backward()
-            self.value_optimizer.step()
+        self.value_optimizer.zero_grad()
+        vloss.backward()
+        self.value_optimizer.step()
 
         self.update_counter += 1

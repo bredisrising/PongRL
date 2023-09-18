@@ -1,62 +1,29 @@
 import pygame
-from game import Game, Paddle, Ball
-from a2c import A2C
+import torch
+import sys
 from vpg import VPG
 from ppo import PPO
 from dqn import DQN
-
+from a2c import A2C
+from run_methods import *
 from constants import *
 
+string_to_algo = {
+    "vpg": VPG,
+    "ppo": PPO,
+    "dqn": DQN,
+    "a2c": A2C
+}
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
-    
-    left_paddles = [
-        Paddle("left", (75, 75, 255), ai=VPG("left", BATCHES, EPISODE_LENGTH, load=False)),
-        Paddle("left", (75, 75, 255), ai=A2C("left", BATCHES, EPISODE_LENGTH, load=False)),
-        Paddle("left", (75, 75, 255), ai=PPO("left", BATCHES, EPISODE_LENGTH, load=False)),
-        Paddle("left", (75, 75, 255), ai=DQN("left", BATCHES, EPISODE_LENGTH, load=False))
-    ]
-
-    right_paddles = [
-        Paddle("right", (255, 75, 75), ai=VPG("right", BATCHES, EPISODE_LENGTH, load=False)),
-        Paddle("right", (255, 75, 75), ai=A2C("right", BATCHES, EPISODE_LENGTH, load=False)),
-        Paddle("right", (255, 75, 75), ai=PPO("right", BATCHES, EPISODE_LENGTH, load=False)),
-        Paddle("right", (255, 75, 75), ai=DQN("right", BATCHES, EPISODE_LENGTH, load=False))
-    ]
-
-    # left_paddle = Paddle("left", (75, 75, 255), ai=DQN("left", BATCHES, EPISODE_LENGTH, load=False))
-    # right_paddle = Paddle("right", (255, 75, 75), ai=DQN("right", BATCHES, EPISODE_LENGTH, load=False))
-    
-    
-    for i in range(4):
-        ball = Ball((255, 255, 255))
-        ball.reset()
-        game = Game(screen, left_paddles[i], right_paddles[i], ball, load=False)    
-        
-        running = True
-        fps = 3000
-
-        running = True
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT or event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE or event.type == pygame.KEYDOWN and event.key == pygame.K_q:
-                    running = False
-
-            if game.step():
-                running = False
-            
-
-            pygame.display.flip()
-
-            clock.tick(fps)
-
-
-        left_paddles[i].ai.save()
-        right_paddles[i].ai.save()
-
-        game.save(left_paddles[i].ai.net)
-    
+    if sys.argv[1] == 'train':
+        train(string_to_algo[sys.argv[2]], screen, clock)
+    elif sys.argv[1] == 'train_all':
+        train_all(screen, clock)
+    elif sys.argv[1] == 'play_vs':
+        computer_vs_human(string_to_algo[sys.argv[2]], screen, clock)
+    elif sys.argv[1] == 'watch':
+        computer_vs_computer(string_to_algo[sys.argv[2]], string_to_algo[sys.argv[3]], screen, clock)

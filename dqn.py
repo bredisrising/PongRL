@@ -4,8 +4,8 @@ import torch.nn as nn
 from base_algo import Base
 
 class DQN(Base):
-    def __init__(self, name, batches, time_steps, lr=1e-3, df=.993, load=False):
-        super().__init__(batches, time_steps, lr, df)
+    def __init__(self, name, batches, batch_size, time_steps, lr=1e-3, df=.993, load=False):
+        super().__init__(batches, batch_size, time_steps, lr, df, p=None)
         self.net  = 'dqn'
         neurons = 64
 
@@ -28,7 +28,7 @@ class DQN(Base):
         self.qvalue_loss_fn = nn.MSELoss()
 
         self.epsilon = 1
-        self.epsilon_decay = .997
+        self.epsilon_decay = .95
         self.epsilon_min = .01
 
     def sample_action(self, state):
@@ -51,10 +51,13 @@ class DQN(Base):
 
         loss = 0
         for b in range(self.batches_to_collect):
-            qvalues = torch.stack(self.probs[b]).unsqueeze(dim=1)
-            returns = torch.tensor(self.returns[b], dtype=torch.float32).unsqueeze(dim=1)
+            for e in range(self.batch_size):
+                qvalues = torch.stack(self.probs[b][e]).unsqueeze(dim=1)
+                returns = torch.tensor(self.returns[b][e], dtype=torch.float32).unsqueeze(dim=1)
 
-            loss += self.qvalue_loss_fn(qvalues, returns).sum()
+                loss += self.qvalue_loss_fn(qvalues, returns).sum()
+
+        loss = loss / self.batches_to_collect
 
         self.qvalue_optimzier.zero_grad()
         loss.backward()
@@ -63,4 +66,4 @@ class DQN(Base):
         self.update_counter += 1
 
         self.epsilon = max(self.epsilon_min, self.epsilon*self.epsilon_decay)
-        print(self.epsilon, end="\r")
+        #print(self.epsilon, end="\r")

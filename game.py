@@ -74,11 +74,10 @@ class Paddle:
 
 
     def update(self, ball_state, p=False):
-        state = torch.cat((ball_state, torch.tensor([self.y/PADDLE_RANGE], dtype=torch.float32)))
         if self.ai == None:
-            print("NO AI")
+            #print("NO AI")
             return
-        
+        state = torch.cat((ball_state, torch.tensor([self.y/PADDLE_RANGE], dtype=torch.float32)))
         action, output = self.ai.sample_action(state)
         if p == True:
             pass
@@ -105,14 +104,19 @@ class Paddle:
 
 
 class Game:
-    def __init__(self, screen, left_paddle, right_paddle, ball, load=False):
+    def __init__(self, screen, left_paddle, right_paddle, ball, load=False, train=False):
         self.screen = screen
         self.left_paddle = left_paddle
         self.right_paddle = right_paddle
         self.ball = ball
         
         self.consecutive_hit_counter = 0
-        self.max_consecutive_hits = 3 
+        self.max_consecutive_hits = 15
+        
+        self.train = False
+
+        if self.train:
+            self.max_consecutive_hits = 5
         
         if load:
             self.reward_per_match = pickle.load(open("./train_logs/vpg_rewards.pkl", "rb"))
@@ -120,7 +124,7 @@ class Game:
             self.reward_per_match = []
         self.rolling_average = 0
 
-        self.font = pygame.font.Font('freesansbold.ttf', 32)
+        self.font = pygame.font.Font('freesansbold.ttf', 24)
     
     def save(self, name):
         # pickle the reward
@@ -132,7 +136,7 @@ class Game:
         self.ball.update()
 
         # if self.ball.x - BALL_RADIUS > 0:
-        if self.left_paddle.y - BALL_RADIUS<= self.ball.y <= self.left_paddle.y + PADDLE_SIZE + BALL_RADIUS and self.ball.x <= self.left_paddle.x + PADDLE_WIDTH + BALL_RADIUS:
+        if self.left_paddle.y - BALL_RADIUS<= self.ball.y <= self.left_paddle.y + PADDLE_SIZE + BALL_RADIUS and self.ball.x <= self.left_paddle.x + PADDLE_WIDTH + BALL_RADIUS + 3:
             self.ball.x = self.left_paddle.x + PADDLE_WIDTH + BALL_RADIUS + 1
             self.ball.vx *= -1
             
@@ -140,7 +144,7 @@ class Game:
             self.consecutive_hit_counter += 1
         
         # if self.ball.x < WIDTH - BALL_RADIUS:
-        if self.right_paddle.y - BALL_RADIUS <= self.ball.y <= self.right_paddle.y + PADDLE_SIZE + BALL_RADIUS and self.ball.x >= self.right_paddle.x - BALL_RADIUS:
+        if self.right_paddle.y - BALL_RADIUS <= self.ball.y <= self.right_paddle.y + PADDLE_SIZE + BALL_RADIUS and self.ball.x >= self.right_paddle.x - BALL_RADIUS - 3:
             self.ball.x = self.right_paddle.x - BALL_RADIUS - 1
             self.ball.vx *= -1
 
@@ -165,11 +169,11 @@ class Game:
 
         
 
-
-
     def step(self):   
         if self.consecutive_hit_counter >= self.max_consecutive_hits:
-            self.ball.reset()
+            self.left_paddle.score += 1
+            self.right_paddle.score += 1  
+            self.ball.reset() 
             self.consecutive_hit_counter = 0
 
 
@@ -188,6 +192,9 @@ class Game:
         self.right_paddle.render(self.screen)
         self.ball.render(self.screen)
 
+        if not self.train:
+            return False
+
         if LOG and self.left_paddle.score > 10 or self.right_paddle.score > 10:
             # game over
             # log accumulated reward
@@ -200,6 +207,7 @@ class Game:
             self.left_paddle.score = 0
             self.right_paddle.score = 0
 
+
         text = self.font.render(str(self.rolling_average), True, (255, 255, 255), (0, 0, 0))
         textRect = text.get_rect()
         textRect.center = (WIDTH // 2, 50)
@@ -208,16 +216,17 @@ class Game:
         if len(self.reward_per_match) <= 0:
             return False
         
+        print(self.reward_per_match, '                 ', end="\r")
+
         text = self.font.render(str(self.reward_per_match[-1]), True, (255, 255, 255), (0, 0, 0))
         textRect = text.get_rect()
         textRect.center = (WIDTH // 2, 150)
         self.screen.blit(text, textRect)
 
 
-        if len(self.reward_per_match) == 1000:
+        if len(self.reward_per_match) == MATCHES:
             return True
         else:
             return False
 
-        # render rolling average
         

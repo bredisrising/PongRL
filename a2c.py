@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 #without value function
 class A2C(Base):
-    def __init__(self, name, batches, time_steps, lr=1e-3, df=.993, load=False):
-        super().__init__(batches, time_steps, lr, df)
+    def __init__(self, name, batches, batch_size, time_steps, lr=1e-3, df=0.0, load=False, p=None):
+        super().__init__(batches, batch_size, time_steps, lr, df, p)
         self.net = 'a2c'
         neurons = 64
         self.value = nn.Sequential(
@@ -31,9 +31,9 @@ class A2C(Base):
 
         self.advantages = []
         
-        self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
+        self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=1e-3)
         
-        self.value_optimizer = torch.optim.Adam(self.value.parameters(), lr=self.lr)
+        self.value_optimizer = torch.optim.Adam(self.value.parameters(), lr=1.5e-3)
         self.value_loss_fn = nn.MSELoss()
 
     def save(self):
@@ -45,43 +45,73 @@ class A2C(Base):
         self.values = []
         for b in range(self.batches_to_collect):
             self.values.append([])
-            self.values[b] = self.value(torch.stack(self.states[b]))
             self.advantages.append([])
-            # get next value - prev value for each index
-            for i in range(len(self.values[b])):
-                if i == len(self.values[b]) - 1:
-                    self.advantages[b].append(self.returns[b][i] - self.values[b][i])
-                else:
-                    self.advantages[b].append(self.returns[b][i] + self.values[b][i+1]*.99 - self.values[b][i])
+            for e in range(self.batch_size):
+                self.values[b].append([])
+                self.values[b][e] = self.value(torch.stack(self.states[b][e]))
+                self.advantages[b].append([])
+                # get next value - prev value for each index
+                for i in range(len(self.values[b][e])):
+                    if i == len(self.values[b][e]) - 1:
+                        self.advantages[b][e].append(self.returns[b][e][i] - self.values[b][e][i])
+                    else:
+                        self.advantages[b][e].append(self.returns[b][e][i] + self.values[b][e][i+1]*.99 - self.values[b][e][i])
 
+    def discount(self):
+        self.advantages = []
+        self.values = []
+        for b in range(self.batches_to_collect):
+            self.advantages.append([])
+            self.values.append([])
+            for e in range(self.batch_size):
+                self.values[b].append([])
+                self.values[b][e] = self.value(torch.stack(self.states[b][e]))
+                self.advantages[b].append([])
 
+                if len(self.rewards[b][e]) == 0 or self.rewards[b][e][-1][1] != self.time_steps-1:
+                    self.rewards[b][e].append((0, self.time_steps-1))
 
+                for r in range(len(self.rewards[b][e])):
+                    if r-1 < 0:
+                        prev_time = -1
+                    else:
+                        prev_time = self.rewards[b][e][r-1][1]
+                    reward, time = self.rewards[b][e][r]
+
+                    for i, index in enumerate(range(prev_time+1, time+1)):
+                        self.returns[b][e][index] = reward * self.df**(((time+1) - (prev_time+1)) - (i+1))
+
+                    for i, index  in enumerate(range(prev_time+1, time+1)):
+                        if ((time+1) - (prev_time+1)) - (i+1) == 0:
+                            #self.advantages[b][e][index] = self.returns[b][e][index] - self.values[b][e][index]
+                            self.advantages[b][e].append(self.returns[b][e][index] - self.values[b][e][index])
+                        else:
+                            #self.advantages[b][e][index] = self.returns[b][e][index+1] + self.values[b][e][index+1]*.99 - self.values[b][e][index]
+                            self.advantages[b][e].append(self.returns[b][e][index+1] + self.values[b][e][index+1]*.993 - self.values[b][e][index])
 
     def optimize(self):
-        super().discount()
-        self.advantage()
-
+        self.discount()
 
         ploss = 0
         entropy_loss = 0
-
         vloss = 0   
 
         for b in range(self.batches_to_collect):
-            entropys = torch.stack(self.entropys[b])
-            log_probs = torch.stack(self.log_probs[b])
-            returns = torch.tensor([self.returns[b]], dtype=torch.float32).permute(1,0)
-            advantages = torch.stack(self.advantages[b])
-            vloss += self.value_loss_fn(self.values[b], returns.detach()).sum()
-            ploss += (-log_probs * advantages.detach()).sum()
-            entropy_loss -= entropys.sum()
+            for e in range(self.batch_size):
+                entropys = torch.stack(self.entropys[b][e])
+                log_probs = torch.stack(self.log_probs[b][e])
 
-        ploss = ploss / self.batches_to_collect
+                advantages = torch.stack(self.advantages[b][e])
+                vloss += advantages.pow(2).sum()
+                ploss += (-log_probs * advantages.detach()).sum()
+                entropy_loss -= entropys.sum()
+
+        # ploss = ploss / self.batches_to_collect
+        # entropy_loss = entropy_loss / self.batches_to_collect
         vloss = vloss / self.batches_to_collect
-        entropy_loss = entropy_loss / self.batches_to_collect
 
         self.policy_optimizer.zero_grad()
-        loss = ploss + entropy_loss 
+        loss = ploss + entropy_loss * 0.01
         loss.backward()
         self.policy_optimizer.step()
 
