@@ -25,7 +25,7 @@ python run.py watch <algo> <algo> # two trained ais against each other
   
 ![Image](rewards.png)
 
-#####Citations
+##### Citations
 - PyTorch
 - NumPy
 - [OpenAI Spinningup RL](https://spinningup.openai.com/en/latest/user/introduction.html)
